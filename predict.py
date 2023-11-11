@@ -82,22 +82,22 @@ class RecommenderSystem:
         if num_common_items == 0:
             return 0
 
-        filt = [x for x in user1_ratings if x != -1]
-        filt2 = [x for x in user2_ratings if x != -1]
-        
-        mean_user1 = sum(user1_ratings) / len(filt)
-        mean_user2 = sum(user2_ratings) / len(filt2)
+        user1_ratings_common = [user1_ratings[i] for i in common_items]
+        user2_ratings_common = [user2_ratings[i] for i in common_items]
 
-        numerator = sum((user1_ratings[i] - mean_user1) * (user2_ratings[i] - mean_user2) for i in range(num_common_items))
-        denominator_user1 = math.sqrt(sum((user1_ratings[i] - mean_user1) ** 2 for i in range(num_common_items)))
-        denominator_user2 = math.sqrt(sum((user2_ratings[i] - mean_user2) ** 2 for i in range(num_common_items)))
-        print(f"numerator: {numerator:.2f}, denominator_user1: {denominator_user1:.2f}, denominator_user2: {denominator_user2:.2f}")
+        mean_user1 = np.mean(user1_ratings_common)
+        mean_user2 = np.mean(user2_ratings_common)
+
+        numerator = sum((user1_ratings_common[i] - mean_user1) * (user2_ratings_common[i] - mean_user2) for i in range(num_common_items))
+        denominator_user1 = math.sqrt(sum((user1_ratings_common[i] - mean_user1) ** 2 for i in range(num_common_items)))
+        denominator_user2 = math.sqrt(sum((user2_ratings_common[i] - mean_user2) ** 2 for i in range(num_common_items)))
 
         if denominator_user1 * denominator_user2 == 0:
             return 0
 
         correlation = numerator / (denominator_user1 * denominator_user2)
         return correlation
+
 
     def precompute_similarities(self):
         """
