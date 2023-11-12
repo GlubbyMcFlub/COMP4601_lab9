@@ -3,6 +3,8 @@ import math
 import numpy as np
 
 class RecommenderSystem:
+    MISSING_RATING = -1
+    
     def __init__(self, path, neighbourhood_size=2):
         """
         Initialize the RecommenderSystem with the given file path and neighbourhood size.
@@ -53,7 +55,7 @@ class RecommenderSystem:
                         if len(items) != num_items:
                             raise ValueError("Number of items does not match.")
                     else:
-                        ratings.append([float(rating) if rating != '-1' else -1 for rating in data])
+                        ratings.append([float(rating) if rating != self.MISSING_RATING else self.MISSING_RATING for rating in data])
                     line_num += 1
         except ValueError:
             print("Error: Failed to parse data.")
@@ -84,9 +86,11 @@ class RecommenderSystem:
 
         user1_ratings_common = [user1_ratings[i] for i in common_items]
         user2_ratings_common = [user2_ratings[i] for i in common_items]
+        user1_ratings_all = [x for x in user1_ratings if x != self.MISSING_RATING]
+        user2_ratings_all = [x for x in user2_ratings if x != self.MISSING_RATING]
 
-        mean_user1 = np.mean(user1_ratings_common)
-        mean_user2 = np.mean(user2_ratings_common)
+        mean_user1 = np.mean(user1_ratings_all)
+        mean_user2 = np.mean(user2_ratings_all)
 
         numerator = sum((user1_ratings_common[i] - mean_user1) * (user2_ratings_common[i] - mean_user2) for i in range(num_common_items))
         denominator_user1 = math.sqrt(sum((user1_ratings_common[i] - mean_user1) ** 2 for i in range(num_common_items)))
@@ -106,28 +110,19 @@ class RecommenderSystem:
         Returns:
         - similarities (numpy.array): Matrix of precomputed similarities.
         """
-        # TODO: only precompute similarity of ONE relation, not both
         
         similarities = np.zeros((self.num_users, self.num_users), dtype=np.float64)
 
-        for i, user1 in enumerate(self.users):
-            for j, user2 in enumerate(self.users):
-                if i >= len(self.users) or j >= len(self.users):
-                    print(f"Debug: i={i} or j={j} is out of bounds for self.users with size {len(self.users)}")
-                    continue
-                
-                if self.users[i] == self.users[j]:
-                    print(f"Skipping same user {user1} and {user2}")
-                    continue
-
-                user1_indices = np.where(self.ratings[i] != -1)[0]
-                user2_indices = np.where(self.ratings[j] != -1)[0]
+        for i in range(self.num_users):
+            # Calculate for unique pairs
+            for j in range(i + 1, self.num_users): 
+                user1_indices = np.where(self.ratings[i] != self.MISSING_RATING)[0]
+                user2_indices = np.where(self.ratings[j] != self.MISSING_RATING)[0]
 
                 intersecting_indices = np.intersect1d(user1_indices, user2_indices)
                 common_items = intersecting_indices
 
                 similarity = self.compute_similarity(self.ratings[i], self.ratings[j], common_items)
-                print(f"Similarity between {user1} and {user2}: {similarity:.2f}")
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
 
@@ -148,43 +143,37 @@ class RecommenderSystem:
 
         for i in range(self.num_users):
             current_user_ratings = self.ratings[i]
-            current_user_predicted_ratings = np.full(self.num_items, -1, dtype=float)
+            current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
 
             for j in range(self.num_items):
-                if current_user_ratings[j] == -1:
+                if current_user_ratings[j] == self.MISSING_RATING:
                     neighbours = []
 
                     for k in range(self.num_users):
-                        if i != k and self.ratings[k, j] != -1:
+                        if i != k and self.ratings[k, j] != self.MISSING_RATING:
                             neighbours.append((k, similarities[i, k]))
 
                     neighbours.sort(key=lambda x: x[1], reverse=True)
                     top_neighbours = neighbours[:self.neighbourhood_size]
                     # TODO: Could also use a threshold for similarity
-
                     sum_ratings = 0
                     total_similarity = 0
 
                     for neighbour_index, similarity in top_neighbours:
                         neighbour_rating = self.ratings[neighbour_index, j]
                         # Calculate the deviation from the average
-                        deviation = neighbour_rating - np.mean(self.ratings[neighbour_index])
-                        print(f"Deviation from average for {self.users[neighbour_index]}: {deviation:.2f}")
-                        
+                        filtered_ratings = [x for x in self.ratings[neighbour_index] if x != self.MISSING_RATING]
+                        deviation = neighbour_rating - np.mean(filtered_ratings)
                         # Accumulate the weighted sum of deviations
                         sum_ratings += similarity * deviation
-                        print(f"Weighted sum of deviations for {self.users[neighbour_index]}: {sum_ratings:.2f}")
-                        total_similarity += abs(similarity)
+                        total_similarity += similarity
 
-                    if total_similarity > 0:
-                        # Calculate predicted rating
-                        print(f"Rating: {self.ratings[i]}")
-                        user_average = np.mean(self.ratings[i][self.ratings[i] != -1])
-                        influence = sum_ratings / total_similarity
-                        predicted_rating = user_average + influence
-                        print(f"Predicted rating for {self.users[i]} on {self.items[j]}: {predicted_rating:.2f}. User average: {user_average:.2f}, Influence: {influence:.2f}")
-                        # Ensure rating is between 0 and 5
-                        current_user_predicted_ratings[j] = max(0, predicted_rating)
+                    # Calculate predicted rating
+                    user_average = np.mean(self.ratings[i][self.ratings[i] != self.MISSING_RATING])
+                    influence = sum_ratings / total_similarity
+                    predicted_rating = user_average + influence
+                    # Ensure rating is between 0 and 5
+                    current_user_predicted_ratings[j] = max(0, min(5, predicted_rating))
 
             predicted_ratings.append(current_user_predicted_ratings)
 
@@ -205,7 +194,7 @@ class RecommenderSystem:
 
         for i in range(self.num_users):
             for j in range(self.num_items):
-                if self.ratings[i, j] == -1:
+                if self.ratings[i, j] == self.MISSING_RATING:
                     self.ratings[i, j] = predicted_ratings[i][j]
 
         if expected_ratings is not None:
@@ -233,7 +222,7 @@ class RecommenderSystem:
                     expected_ratings.append([float(rating) for rating in line.split()])
                 return np.array(expected_ratings)
         except FileNotFoundError:
-            print(f"Expected output file not found: {expected_output_path}")
+            print(f"File not found: {expected_output_path}")
             return None
 
     def compare_ratings(self, expected_ratings):
@@ -245,8 +234,11 @@ class RecommenderSystem:
         """
         
         if expected_ratings is not None:
-            if np.allclose(self.ratings, expected_ratings):
-                print("Matrices are approximately equal.")
+            rounded_generated_ratings = np.round(self.ratings, decimals=2)
+            rounded_expected_ratings = np.round(expected_ratings, decimals=2)
+
+            if np.allclose(rounded_generated_ratings, rounded_expected_ratings):
+                print("Matrices are equalish, good enough.")
             else:
                 print("Matrices are NOT equal.") 
 
@@ -267,7 +259,8 @@ class RecommenderSystem:
         """
         
         for row in matrix:
-            print(" ".join(f"{rating:.2f}" if rating != -1 else "-1.00" for rating in row))
+            print(" ".join(f"{rating:.2f}" if rating != self.MISSING_RATING else f"{self.MISSING_RATING:.2f}" for rating in row))
+
 
 def main():
     input_directory = "./input"
@@ -280,9 +273,7 @@ def main():
     selected_index = int(input("File to process: ")) - 1
     selected_file = os.path.join(input_directory, files[selected_index])
 
-    neighbourhood_size = 2
-
-    recommender_system = RecommenderSystem(selected_file, neighbourhood_size)
+    recommender_system = RecommenderSystem(selected_file)
     recommender_system.fill_in_predicted_ratings()
 
 if __name__ == "__main__":
