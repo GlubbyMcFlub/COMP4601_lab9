@@ -70,7 +70,7 @@ class RecommenderSystem:
             item1_denominator += (self.ratings[i, item1_index] - average_ratings[i]) ** 2
             item2_denominator += (self.ratings[i, item2_index] - average_ratings[i]) ** 2
             
-        # Cosine similarity formula
+        # Adjusted cosine similarity formula
         denominator = math.sqrt(item1_denominator) * math.sqrt(item2_denominator)
         similarity = numerator / denominator if denominator != 0 else 0
 
