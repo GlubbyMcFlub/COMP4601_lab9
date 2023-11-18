@@ -4,7 +4,7 @@ import numpy as np
 
 class RecommenderSystem:
     MISSING_RATING = -1
-    
+
     def __init__(self, path, neighbourhood_size=2):
         """
         Initialize the RecommenderSystem with the given file path and neighbourhood size.
@@ -13,7 +13,6 @@ class RecommenderSystem:
         - path (str): File path of the input data.
         - neighbourhood_size (int): Size of the neighbourhood for collaborative filtering.
         """
-        
         self.path = path
         self.neighbourhood_size = neighbourhood_size
         self.num_users, self.num_items, self.users, self.items, self.ratings = self.read_data()
@@ -29,34 +28,13 @@ class RecommenderSystem:
         - items (numpy.array): Array of item names.
         - ratings (numpy.array): Array of user-item ratings.
         """
-        
-        num_users = None
-        num_items = None
-        users = []
-        items = []
-        ratings = []
-
         try:
             with open(self.path, 'r') as file:
-                line_num = 0
-                for line in file:
-                    data = line.split()
-                    if line_num == 0:
-                        num_users = int(data[0])
-                        num_items = int(data[1])
-                    elif line_num == 1:
-                        users = data
-                        
-                        if len(users) != num_users:
-                            raise ValueError("Number of users does not match.")
-                    elif line_num == 2:
-                        items = data
-
-                        if len(items) != num_items:
-                            raise ValueError("Number of items does not match.")
-                    else:
-                        ratings.append([float(rating) if rating != self.MISSING_RATING else self.MISSING_RATING for rating in data])
-                    line_num += 1
+                num_users, num_items = map(int, file.readline().split())
+                users = np.array(file.readline().split())
+                items = np.array(file.readline().split())
+                ratings = np.array([[float(rating) if rating != self.MISSING_RATING else self.MISSING_RATING for rating in line.split()] for line in file])
+                return num_users, num_items, users, items, ratings
         except ValueError:
             print("Error: Failed to parse data.")
             return None, None, None, None, None
@@ -64,16 +42,15 @@ class RecommenderSystem:
             print(f"Error: {str(err)}")
             return None, None, None, None, None
 
-        return num_users, num_items, np.array(users), np.array(items), np.array(ratings)
-
     def compute_similarity(self, item1_index, item2_index, common_users, average_ratings):
         """
-        Computes the cosine similarity between two items based on user ratings.
+        Computes the adjusted cosine similarity between two items based on user ratings.
 
         Parameters:
-        - item1_ratings (list): Ratings of user 1 for common users.
-        - item2_ratings (list): Ratings of user 2 for common users.
-        - common_users (list): List of indices for common items.
+        - item1_index (int): Index of the first item.
+        - item2_index (int): Index of the second item.
+        - common_users (numpy.array): Indices of common users who rated both items.
+        - average_ratings (numpy.array): Average ratings for each user.
 
         Returns:
         - similarity (float): Cosine similarity.
@@ -84,15 +61,15 @@ class RecommenderSystem:
             return 0
 
         numerator = 0
-        item1Denominator = 0
-        item2Denominator = 0
+        item1_denominator = 0
+        item2_denominator = 0
         for i in common_users:
-            numerator += (self.ratings[i,item1_index] - average_ratings[i]) * (self.ratings[i, item2_index] - average_ratings[i])
-            item1Denominator += (self.ratings[i, item1_index] - average_ratings[i]) ** 2
-            item2Denominator += (self.ratings[i, item2_index] - average_ratings[i]) ** 2
-        denominator = math.sqrt(item1Denominator) * math.sqrt(item2Denominator)
-        similarity = numerator/denominator
-        print(f"Similarity between item {item1_index} and item {item2_index}: {similarity}")
+            numerator += (self.ratings[i, item1_index] - average_ratings[i]) * (self.ratings[i, item2_index] - average_ratings[i])
+            item1_denominator += (self.ratings[i, item1_index] - average_ratings[i]) ** 2
+            item2_denominator += (self.ratings[i, item2_index] - average_ratings[i]) ** 2
+        denominator = math.sqrt(item1_denominator) * math.sqrt(item2_denominator)
+        similarity = numerator / denominator if denominator != 0 else 0
+
         return similarity
 
     def precompute_similarities(self):
@@ -102,27 +79,18 @@ class RecommenderSystem:
         Returns:
         - similarities (numpy.array): Matrix of precomputed item similarities.
         """
-        
         similarities = np.zeros((self.num_items, self.num_items), dtype=np.float64)
-        average_ratings = []
-        for i in range(self.num_users):
-            average_ratings.append(np.mean([x for x in self.ratings[i] if x != -1]))
-            print(f"average rating for user {i+1} = {average_ratings[i]}")
+        average_ratings = np.nanmean(np.where(self.ratings != self.MISSING_RATING, self.ratings, np.nan), axis=1)
 
         for i in range(self.num_items):
-            # Calculate for unique pairs of items
-            for j in range(i + 1, self.num_items): 
+            for j in range(i + 1, self.num_items):
                 item1_ratings = np.where(self.ratings[:, i] != self.MISSING_RATING)[0]
                 item2_ratings = np.where(self.ratings[:, j] != self.MISSING_RATING)[0]
-
-                intersecting_ratings = np.intersect1d(item1_ratings, item2_ratings)
-                common_users = intersecting_ratings
-
-                print(f"Similarity between item {i+1} and item {j+1}, {common_users}:")
+                common_users = np.intersect1d(item1_ratings, item2_ratings)
                 similarity = self.compute_similarity(i, j, common_users, average_ratings)
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
-                
+
         return similarities
 
     def predict_ratings(self, similarities):
@@ -135,31 +103,20 @@ class RecommenderSystem:
         Returns:
         - predicted_ratings (list): List of predicted ratings for each user.
         """
-
         predicted_ratings = []
 
-        # TODO: implement similar strat of unrated_items but for users?
         for i in range(self.num_users):
             current_user_ratings = self.ratings[i]
             current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
-
             unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
-            print(f"Unrated items for user {i+1}: {unrated_items}")
 
             for j in unrated_items:
                 neighbours = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
-
                 adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
-                # Indices of top "adjusted_neighbourhood_size" neighbours with the highest similarity to item j
                 top_neighbours = np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
                 top_neighbours = neighbours[top_neighbours]
-                print(f"Top {adjusted_neighbourhood_size} neighbours for item {j+1}: {top_neighbours}")
-
                 sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[i, top_neighbours])
                 total_similarity = np.sum(similarities[j, top_neighbours])
-                print(f"Sum of ratings: {sum_ratings}")
-                print(f"Total similarity: {total_similarity}")
-                print(f"Predicted rating for item {j+1}: {sum_ratings / total_similarity if total_similarity != 0 else self.MISSING_RATING}")
 
                 current_user_predicted_ratings[j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
 
@@ -172,13 +129,12 @@ class RecommenderSystem:
         Fills in the predicted ratings for all users and items.
         Compares the generated ratings with the expected ratings if available.
         """
-        
         similarities = self.precompute_similarities()
         predicted_ratings = self.predict_ratings(similarities)
         expected_ratings = self.read_expected_output()
-        
+
         print("\nOriginal Matrix:")
-        self.print_matrix(self.ratings)  
+        self.print_matrix(self.ratings)
 
         for i in range(self.num_users):
             for j in range(self.num_items):
@@ -198,17 +154,11 @@ class RecommenderSystem:
         Returns:
         - expected_ratings (numpy.array): Matrix of expected ratings.
         """
-        
         expected_output_path = os.path.join("output", "out-" + os.path.basename(self.path))
         try:
             with open(expected_output_path, 'r') as file:
-                expected_ratings = []
-                next(file)
-                next(file)
-                next(file)
-                for line in file:
-                    expected_ratings.append([float(rating) for rating in line.split()])
-                return np.array(expected_ratings)
+                expected_ratings = np.array([[float(rating) for rating in line.split()] for line in file.readlines()[3:]])
+                return expected_ratings
         except FileNotFoundError:
             print(f"File not found: {expected_output_path}")
             return None
@@ -220,7 +170,6 @@ class RecommenderSystem:
         Parameters:
         - expected_ratings (numpy.array): Matrix of expected ratings.
         """
-        
         if expected_ratings is not None:
             rounded_generated_ratings = np.round(self.ratings, decimals=2)
             rounded_expected_ratings = np.round(expected_ratings, decimals=2)
@@ -228,7 +177,7 @@ class RecommenderSystem:
             if np.allclose(rounded_generated_ratings, rounded_expected_ratings):
                 print("Matrices are equalish, good enough.")
             else:
-                print("Matrices are NOT equal.") 
+                print("Matrices are NOT equal.")
 
             print("\nGenerated Matrix:")
             self.print_matrix(self.ratings)
@@ -245,7 +194,6 @@ class RecommenderSystem:
         Parameters:
         - matrix (numpy.array): Matrix to be printed.
         """
-        
         for row in matrix:
             print(" ".join(f"{rating:.2f}" if rating != self.MISSING_RATING else f"{self.MISSING_RATING:.2f}" for rating in row))
 
@@ -258,11 +206,14 @@ def main():
     for index, file in enumerate(files):
         print(f"{index + 1}. {file}")
 
-    selected_index = int(input("File to process: ")) - 1
-    selected_file = os.path.join(input_directory, files[selected_index])
-
-    recommender_system = RecommenderSystem(selected_file)
-    recommender_system.fill_in_predicted_ratings()
+    try:
+        selected_index = int(input("File to process: ")) - 1
+        selected_file = os.path.join(input_directory, files[selected_index])
+        recommender_system = RecommenderSystem(selected_file)
+        recommender_system.fill_in_predicted_ratings()
+    except ValueError:
+        print("Invalid input. Please enter a valid integer.")
+        return
 
 if __name__ == "__main__":
     main()
