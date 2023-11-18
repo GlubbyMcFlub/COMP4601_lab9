@@ -78,9 +78,9 @@ class RecommenderSystem:
         Returns:
         - correlation (float): Pearson correlation coefficient.
         """
-        num_common_items = len(common_users)
+        num_common_users = len(common_users)
 
-        if num_common_items == 0:
+        if num_common_users == 0:
             return 0
 
         item1_ratings_common = [item1_ratings[i] for i in common_users]
@@ -91,9 +91,9 @@ class RecommenderSystem:
         mean_item1 = np.mean(item1_ratings_all)
         mean_item2 = np.mean(item2_ratings_all)
 
-        numerator = sum((item1_ratings_common[i] - mean_item1) * (item2_ratings_common[i] - mean_item2) for i in range(num_common_items))
-        denominator_item1 = math.sqrt(sum((item1_ratings_common[i] - mean_item1) ** 2 for i in range(num_common_items)))
-        denominator_item2 = math.sqrt(sum((item2_ratings_common[i] - mean_item2) ** 2 for i in range(num_common_items)))
+        numerator = sum((item1_ratings_common[i] - mean_item1) * (item2_ratings_common[i] - mean_item2) for i in range(num_common_users))
+        denominator_item1 = math.sqrt(sum((item1_ratings_common[i] - mean_item1) ** 2 for i in range(num_common_users)))
+        denominator_item2 = math.sqrt(sum((item2_ratings_common[i] - mean_item2) ** 2 for i in range(num_common_users)))
 
         if denominator_item1 * denominator_item2 == 0:
             return 0
@@ -124,7 +124,7 @@ class RecommenderSystem:
                 similarity = self.compute_similarity(self.ratings[:, i], self.ratings[:, j], common_users)
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
-                print(f"item {i},{j} similarity = {similarity}")
+                print(f"item {i+1},{j+1} similarity = {similarity}")
         return similarities
 
     def predict_ratings(self, similarities):
