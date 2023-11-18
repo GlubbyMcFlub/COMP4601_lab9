@@ -66,7 +66,7 @@ class RecommenderSystem:
 
         return num_users, num_items, np.array(users), np.array(items), np.array(ratings)
 
-    def compute_similarity(self, item1_ratings, item2_ratings, common_users):
+    def compute_similarity(self, item1_index, item2_index, common_users, average_ratings):
         """
         Computes the cosine similarity between two items based on user ratings.
 
@@ -83,11 +83,16 @@ class RecommenderSystem:
         if num_common_users == 0:
             return 0
 
-        item1_ratings_common = [item1_ratings[i] for i in common_users]
-        item2_ratings_common = [item2_ratings[i] for i in common_users]
-
-        similarity = np.dot(item1_ratings_common, item2_ratings_common) / (np.linalg.norm(item1_ratings_common) * np.linalg.norm(item2_ratings_common))
-        print(f"Similarity between item {item1_ratings} and item {item2_ratings}: {similarity}")
+        numerator = 0
+        item1Denominator = 0
+        item2Denominator = 0
+        for i in common_users:
+            numerator += (self.ratings[i,item1_index] - average_ratings[i]) * (self.ratings[i, item2_index] - average_ratings[i])
+            item1Denominator += (self.ratings[i, item1_index] - average_ratings[i]) ** 2
+            item2Denominator += (self.ratings[i, item2_index] - average_ratings[i]) ** 2
+        denominator = math.sqrt(item1Denominator) * math.sqrt(item2Denominator)
+        similarity = numerator/denominator
+        print(f"Similarity between item {item1_index} and item {item2_index}: {similarity}")
         return similarity
 
     def precompute_similarities(self):
@@ -99,6 +104,10 @@ class RecommenderSystem:
         """
         
         similarities = np.zeros((self.num_items, self.num_items), dtype=np.float64)
+        average_ratings = []
+        for i in range(self.num_users):
+            average_ratings.append(np.mean([x for x in self.ratings[i] if x != -1]))
+            print(f"average rating for user {i+1} = {average_ratings[i]}")
 
         for i in range(self.num_items):
             # Calculate for unique pairs of items
@@ -109,8 +118,8 @@ class RecommenderSystem:
                 intersecting_ratings = np.intersect1d(item1_ratings, item2_ratings)
                 common_users = intersecting_ratings
 
-                print(f"Similarity between item {i+1} and item {j+1}:")
-                similarity = self.compute_similarity(self.ratings[:, i], self.ratings[:, j], common_users)
+                print(f"Similarity between item {i+1} and item {j+1}, {common_users}:")
+                similarity = self.compute_similarity(i, j, common_users, average_ratings)
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
                 
