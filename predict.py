@@ -129,11 +129,13 @@ class RecommenderSystem:
 
         predicted_ratings = []
 
+        # TODO: implement similar strat of unrated_items but for users?
         for i in range(self.num_users):
             current_user_ratings = self.ratings[i]
             current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
 
             unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
+            print(f"Unrated items for user {i+1}: {unrated_items}")
 
             for j in unrated_items:
                 neighbours = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
@@ -142,9 +144,13 @@ class RecommenderSystem:
                 # Indices of top "adjusted_neighbourhood_size" neighbours with the highest similarity to item j
                 top_neighbours = np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
                 top_neighbours = neighbours[top_neighbours]
+                print(f"Top {adjusted_neighbourhood_size} neighbours for item {j+1}: {top_neighbours}")
 
                 sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[i, top_neighbours])
                 total_similarity = np.sum(similarities[j, top_neighbours])
+                print(f"Sum of ratings: {sum_ratings}")
+                print(f"Total similarity: {total_similarity}")
+                print(f"Predicted rating for item {j+1}: {sum_ratings / total_similarity if total_similarity != 0 else self.MISSING_RATING}")
 
                 current_user_predicted_ratings[j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
 
