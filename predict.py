@@ -63,10 +63,14 @@ class RecommenderSystem:
         numerator = 0
         item1_denominator = 0
         item2_denominator = 0
+        
+        # Iterate of the common users to determine each component of the similarity formula
         for i in common_users:
             numerator += (self.ratings[i, item1_index] - average_ratings[i]) * (self.ratings[i, item2_index] - average_ratings[i])
             item1_denominator += (self.ratings[i, item1_index] - average_ratings[i]) ** 2
             item2_denominator += (self.ratings[i, item2_index] - average_ratings[i]) ** 2
+            
+        # Cosine similarity formula
         denominator = math.sqrt(item1_denominator) * math.sqrt(item2_denominator)
         similarity = numerator / denominator if denominator != 0 else 0
 
@@ -105,16 +109,20 @@ class RecommenderSystem:
         """
         predicted_ratings = []
 
+        # TODO: implement similar strat of unrated_items but for users?
         for i in range(self.num_users):
             current_user_ratings = self.ratings[i]
             current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
             unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
 
             for j in unrated_items:
+                # Find neighbours who rated item j and have > 0 similarity
                 neighbours = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
                 adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
+                # Find top neighbours with highest similarity for item j
                 top_neighbours = np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
                 top_neighbours = neighbours[top_neighbours]
+                # Calculate predicted rating for item j
                 sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[i, top_neighbours])
                 total_similarity = np.sum(similarities[j, top_neighbours])
 
