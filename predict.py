@@ -102,12 +102,35 @@ class RecommenderSystem:
         return correlation
 
 
-    def precompute_similarities(self):
+    def compute_similarity(self, item1_ratings, item2_ratings, common_users):
         """
-        Precomputes the similarities between all pairs of users.
+        Computes the cosine similarity between two items based on user ratings.
+
+        Parameters:
+        - item1_ratings (list): Ratings of user 1 for common users.
+        - item2_ratings (list): Ratings of user 2 for common users.
+        - common_users (list): List of indices for common items.
 
         Returns:
-        - similarities (numpy.array): Matrix of precomputed similarities.
+        - similarity (float): Cosine similarity.
+        """
+        num_common_users = len(common_users)
+
+        if num_common_users == 0:
+            return 0
+
+        item1_ratings_common = [item1_ratings[i] for i in common_users]
+        item2_ratings_common = [item2_ratings[i] for i in common_users]
+
+        similarity = np.dot(item1_ratings_common, item2_ratings_common) / (np.linalg.norm(item1_ratings_common) * np.linalg.norm(item2_ratings_common))
+        return similarity
+
+    def precompute_similarities(self):
+        """
+        Precomputes the adjusted cosine similarities between all pairs of items.
+
+        Returns:
+        - similarities (numpy.array): Matrix of precomputed item similarities.
         """
         
         similarities = np.zeros((self.num_items, self.num_items), dtype=np.float64)
@@ -125,6 +148,7 @@ class RecommenderSystem:
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
                 print(f"item {i+1},{j+1} similarity = {similarity}")
+                
         return similarities
 
     def predict_ratings(self, similarities):
