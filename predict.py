@@ -133,36 +133,20 @@ class RecommenderSystem:
             current_user_ratings = self.ratings[i]
             current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
 
-            for j in range(self.num_items):
-                if current_user_ratings[j] == self.MISSING_RATING:
-                    neighbours = []
+            unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
 
-                    for k in range(self.num_items):
-                        if j != k and self.ratings[i, k] != self.MISSING_RATING:
-                            neighbours.append((k, similarities[j, k]))
+            for j in unrated_items:
+                neighbours = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
 
-                    neighbours.sort(key=lambda x: x[1], reverse=True)
-                    adjusted_neighbourhood_size = min(self.neighbourhood_size, sum(1 for x in neighbours if x[1] > 0))
-                    top_neighbours = neighbours[:adjusted_neighbourhood_size]
-                    print(f"Top {adjusted_neighbourhood_size} neighbours for item {j+1}: {top_neighbours}")
-                    # TODO: Could also use a threshold for similarity
-                    sum_ratings = 0
-                    total_similarity = 0
+                adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
+                # Indices of top "adjusted_neighbourhood_size" neighbours with the highest similarity to item j
+                top_neighbours = np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
+                top_neighbours = neighbours[top_neighbours]
 
-                    # Iterate over top neighbours for item j
-                    # For each neighbouring item, accumulate the product of the similairt and the rating of the neighbouring item (sum_ratings)
-                    # After the loop, the predicted rating can be calculated by dividing the sum_ratings by the total_similarity
-                    for neighbour_index, similarity in top_neighbours:
-                        neighbour_rating = self.ratings[i, neighbour_index]
-                        sum_ratings += similarity * neighbour_rating
-                        total_similarity += similarity
+                sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[i, top_neighbours])
+                total_similarity = np.sum(similarities[j, top_neighbours])
 
-                    # Calculate predicted rating
-                    if total_similarity != 0:
-                        predicted_rating = sum_ratings / total_similarity
-                        print(f"Predicted rating for item {j+1}: {predicted_rating}, based on sum_ratings {sum_ratings} and total_similarity {total_similarity}")
-                        # Ensure rating is between 0 and 5
-                        current_user_predicted_ratings[j] = max(0, min(5, predicted_rating))
+                current_user_predicted_ratings[j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
 
             predicted_ratings.append(current_user_predicted_ratings)
 
