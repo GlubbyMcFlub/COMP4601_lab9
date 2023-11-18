@@ -66,40 +66,39 @@ class RecommenderSystem:
 
         return num_users, num_items, np.array(users), np.array(items), np.array(ratings)
 
-    def compute_similarity(self, user1_ratings, user2_ratings, common_items):
+    def compute_similarity(self, item1_ratings, item2_ratings, common_users):
         """
         Computes the Pearson correlation coefficient (PCC) between two users based on their common item ratings.
 
         Parameters:
-        - user1_ratings (list): Ratings of user 1 for common items.
-        - user2_ratings (list): Ratings of user 2 for common items.
+        - item1_ratings (list): Ratings of user 1 for common users.
+        - item2_ratings (list): Ratings of user 2 for common users.
         - common_items (list): List of indices for common items.
 
         Returns:
         - correlation (float): Pearson correlation coefficient.
         """
-
-        num_common_items = len(common_items)
+        num_common_items = len(common_users)
 
         if num_common_items == 0:
             return 0
 
-        user1_ratings_common = [user1_ratings[i] for i in common_items]
-        user2_ratings_common = [user2_ratings[i] for i in common_items]
-        user1_ratings_all = [x for x in user1_ratings if x != self.MISSING_RATING]
-        user2_ratings_all = [x for x in user2_ratings if x != self.MISSING_RATING]
+        item1_ratings_common = [item1_ratings[i] for i in common_users]
+        item2_ratings_common = [item2_ratings[i] for i in common_users]
+        item1_ratings_all = [x for x in item1_ratings if x != self.MISSING_RATING]
+        item2_ratings_all = [x for x in item2_ratings if x != self.MISSING_RATING]
 
-        mean_user1 = np.mean(user1_ratings_all)
-        mean_user2 = np.mean(user2_ratings_all)
+        mean_item1 = np.mean(item1_ratings_all)
+        mean_item2 = np.mean(item2_ratings_all)
 
-        numerator = sum((user1_ratings_common[i] - mean_user1) * (user2_ratings_common[i] - mean_user2) for i in range(num_common_items))
-        denominator_user1 = math.sqrt(sum((user1_ratings_common[i] - mean_user1) ** 2 for i in range(num_common_items)))
-        denominator_user2 = math.sqrt(sum((user2_ratings_common[i] - mean_user2) ** 2 for i in range(num_common_items)))
+        numerator = sum((item1_ratings_common[i] - mean_item1) * (item2_ratings_common[i] - mean_item2) for i in range(num_common_items))
+        denominator_item1 = math.sqrt(sum((item1_ratings_common[i] - mean_item1) ** 2 for i in range(num_common_items)))
+        denominator_item2 = math.sqrt(sum((item2_ratings_common[i] - mean_item2) ** 2 for i in range(num_common_items)))
 
-        if denominator_user1 * denominator_user2 == 0:
+        if denominator_item1 * denominator_item2 == 0:
             return 0
 
-        correlation = numerator / (denominator_user1 * denominator_user2)
+        correlation = numerator / (denominator_item1 * denominator_item2)
         return correlation
 
 
@@ -111,21 +110,21 @@ class RecommenderSystem:
         - similarities (numpy.array): Matrix of precomputed similarities.
         """
         
-        similarities = np.zeros((self.num_users, self.num_users), dtype=np.float64)
+        similarities = np.zeros((self.num_items, self.num_items), dtype=np.float64)
 
-        for i in range(self.num_users):
-            # Calculate for unique pairs
-            for j in range(i + 1, self.num_users): 
-                user1_indices = np.where(self.ratings[i] != self.MISSING_RATING)[0]
-                user2_indices = np.where(self.ratings[j] != self.MISSING_RATING)[0]
+        for i in range(self.num_items):
+            # Calculate for unique pairs of items
+            for j in range(i + 1, self.num_items): 
+                item1_ratings = np.where(self.ratings[:, i] != self.MISSING_RATING)[0]
+                item2_ratings = np.where(self.ratings[:, j] != self.MISSING_RATING)[0]
 
-                intersecting_indices = np.intersect1d(user1_indices, user2_indices)
-                common_items = intersecting_indices
+                intersecting_ratings = np.intersect1d(item1_ratings, item2_ratings)
+                common_users = intersecting_ratings
 
-                similarity = self.compute_similarity(self.ratings[i], self.ratings[j], common_items)
+                similarity = self.compute_similarity(self.ratings[:, i], self.ratings[:, j], common_users)
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
-
+                print(f"item {i},{j} similarity = {similarity}")
         return similarities
 
     def predict_ratings(self, similarities):
