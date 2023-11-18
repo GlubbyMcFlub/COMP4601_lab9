@@ -68,42 +68,6 @@ class RecommenderSystem:
 
     def compute_similarity(self, item1_ratings, item2_ratings, common_users):
         """
-        Computes the Pearson correlation coefficient (PCC) between two users based on their common item ratings.
-
-        Parameters:
-        - item1_ratings (list): Ratings of user 1 for common users.
-        - item2_ratings (list): Ratings of user 2 for common users.
-        - common_items (list): List of indices for common items.
-
-        Returns:
-        - correlation (float): Pearson correlation coefficient.
-        """
-        num_common_users = len(common_users)
-
-        if num_common_users == 0:
-            return 0
-
-        item1_ratings_common = [item1_ratings[i] for i in common_users]
-        item2_ratings_common = [item2_ratings[i] for i in common_users]
-        item1_ratings_all = [x for x in item1_ratings if x != self.MISSING_RATING]
-        item2_ratings_all = [x for x in item2_ratings if x != self.MISSING_RATING]
-
-        mean_item1 = np.mean(item1_ratings_all)
-        mean_item2 = np.mean(item2_ratings_all)
-
-        numerator = sum((item1_ratings_common[i] - mean_item1) * (item2_ratings_common[i] - mean_item2) for i in range(num_common_users))
-        denominator_item1 = math.sqrt(sum((item1_ratings_common[i] - mean_item1) ** 2 for i in range(num_common_users)))
-        denominator_item2 = math.sqrt(sum((item2_ratings_common[i] - mean_item2) ** 2 for i in range(num_common_users)))
-
-        if denominator_item1 * denominator_item2 == 0:
-            return 0
-
-        correlation = numerator / (denominator_item1 * denominator_item2)
-        return correlation
-
-
-    def compute_similarity(self, item1_ratings, item2_ratings, common_users):
-        """
         Computes the cosine similarity between two items based on user ratings.
 
         Parameters:
@@ -123,6 +87,7 @@ class RecommenderSystem:
         item2_ratings_common = [item2_ratings[i] for i in common_users]
 
         similarity = np.dot(item1_ratings_common, item2_ratings_common) / (np.linalg.norm(item1_ratings_common) * np.linalg.norm(item2_ratings_common))
+        print(f"Similarity between item {item1_ratings} and item {item2_ratings}: {similarity}")
         return similarity
 
     def precompute_similarities(self):
@@ -144,10 +109,10 @@ class RecommenderSystem:
                 intersecting_ratings = np.intersect1d(item1_ratings, item2_ratings)
                 common_users = intersecting_ratings
 
+                print(f"Similarity between item {i+1} and item {j+1}:")
                 similarity = self.compute_similarity(self.ratings[:, i], self.ratings[:, j], common_users)
                 similarities[i, j] = similarity
                 similarities[j, i] = similarity
-                print(f"item {i+1},{j+1} similarity = {similarity}")
                 
         return similarities
 
@@ -161,7 +126,7 @@ class RecommenderSystem:
         Returns:
         - predicted_ratings (list): List of predicted ratings for each user.
         """
-        
+
         predicted_ratings = []
 
         for i in range(self.num_users):
@@ -172,31 +137,32 @@ class RecommenderSystem:
                 if current_user_ratings[j] == self.MISSING_RATING:
                     neighbours = []
 
-                    for k in range(self.num_users):
-                        if i != k and self.ratings[k, j] != self.MISSING_RATING:
-                            neighbours.append((k, similarities[i, k]))
+                    for k in range(self.num_items):
+                        if j != k and self.ratings[i, k] != self.MISSING_RATING:
+                            neighbours.append((k, similarities[j, k]))
 
                     neighbours.sort(key=lambda x: x[1], reverse=True)
-                    top_neighbours = neighbours[:self.neighbourhood_size]
+                    adjusted_neighbourhood_size = min(self.neighbourhood_size, sum(1 for x in neighbours if x[1] > 0))
+                    top_neighbours = neighbours[:adjusted_neighbourhood_size]
+                    print(f"Top {adjusted_neighbourhood_size} neighbours for item {j+1}: {top_neighbours}")
                     # TODO: Could also use a threshold for similarity
                     sum_ratings = 0
                     total_similarity = 0
 
+                    # Iterate over top neighbours for item j
+                    # For each neighbouring item, accumulate the product of the similairt and the rating of the neighbouring item (sum_ratings)
+                    # After the loop, the predicted rating can be calculated by dividing the sum_ratings by the total_similarity
                     for neighbour_index, similarity in top_neighbours:
-                        neighbour_rating = self.ratings[neighbour_index, j]
-                        # Calculate the deviation from the average
-                        filtered_ratings = [x for x in self.ratings[neighbour_index] if x != self.MISSING_RATING]
-                        deviation = neighbour_rating - np.mean(filtered_ratings)
-                        # Accumulate the weighted sum of deviations
-                        sum_ratings += similarity * deviation
+                        neighbour_rating = self.ratings[i, neighbour_index]
+                        sum_ratings += similarity * neighbour_rating
                         total_similarity += similarity
 
                     # Calculate predicted rating
-                    user_average = np.mean(self.ratings[i][self.ratings[i] != self.MISSING_RATING])
-                    influence = sum_ratings / total_similarity
-                    predicted_rating = user_average + influence
-                    # Ensure rating is between 0 and 5
-                    current_user_predicted_ratings[j] = max(0, min(5, predicted_rating))
+                    if total_similarity != 0:
+                        predicted_rating = sum_ratings / total_similarity
+                        print(f"Predicted rating for item {j+1}: {predicted_rating}, based on sum_ratings {sum_ratings} and total_similarity {total_similarity}")
+                        # Ensure rating is between 0 and 5
+                        current_user_predicted_ratings[j] = max(0, min(5, predicted_rating))
 
             predicted_ratings.append(current_user_predicted_ratings)
 
