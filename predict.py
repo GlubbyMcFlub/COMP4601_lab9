@@ -5,7 +5,7 @@ import time
 
 class RecommenderSystem:
     MISSING_RATING = 0
-    DEFAULT_NEIGHBOURHOOD_SIZE = 5
+    DEFAULT_NEIGHBOURHOOD_SIZE = 2
 
     def __init__(self, path, neighbourhood_size=DEFAULT_NEIGHBOURHOOD_SIZE):
         self.path = path
@@ -32,21 +32,12 @@ class RecommenderSystem:
         if num_common_users == 0:
             return 0
 
-        numerator = 0
-        item1_denominator = 0
-        item2_denominator = 0
-
-        for i in common_users:
-            rating_item1 = self.ratings[i, item1_index]
-            rating_item2 = self.ratings[i, item2_index]
-
-            if not np.isnan(rating_item1) and not np.isnan(rating_item2):
-                numerator += (rating_item1 - average_ratings[i]) * (rating_item2 - average_ratings[i])
-                item1_denominator += (rating_item1 - average_ratings[i]) ** 2
-                item2_denominator += (rating_item2 - average_ratings[i]) ** 2
+        numerator = np.sum((self.ratings[common_users, item1_index] - average_ratings[common_users]) * (self.ratings[common_users, item2_index] - average_ratings[common_users]))
+        item1_denominator = np.sum((self.ratings[common_users, item1_index] - average_ratings[common_users]) ** 2)
+        item2_denominator = np.sum((self.ratings[common_users, item2_index] - average_ratings[common_users]) ** 2)
 
         denominator = math.sqrt(item1_denominator) * math.sqrt(item2_denominator)
-        similarity = numerator / denominator if denominator != 0 else 0
+        similarity = max(0, numerator / denominator) if denominator != 0 else 0
 
         return similarity
 
@@ -66,41 +57,27 @@ class RecommenderSystem:
         return similarities
 
     def predict_ratings(self, similarities):
-        """
-        Predicts the ratings for items that a user has not rated yet, using collaborative filtering.
-
-        Parameters:
-        - similarities (numpy.array): Matrix of precomputed similarities.
-
-        Returns:
-        - predicted_ratings (list): List of predicted ratings for each user.
-        """
-        predicted_ratings = []
+        predicted_ratings = np.full((self.num_users, self.num_items), self.MISSING_RATING, dtype=float)
 
         for i in range(self.num_users):
             current_user_ratings = self.ratings[i]
-            current_user_predicted_ratings = np.full(self.num_items, self.MISSING_RATING, dtype=float)
+            current_user_predicted_ratings = [0] * len(unrated_items)  # Initialize the list
+
             unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
 
             for j in unrated_items:
-                # Find neighbors who rated item j and have > 0 similarity
-                neighbours = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
+                neighbours = np.where((self.ratings[:, j] != self.MISSING_RATING) & (similarities[j] > 0))[0]
                 adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
 
                 if adjusted_neighbourhood_size == 0:
-                    # If no good neighbors found, use the average rating of the user
-                    current_user_predicted_ratings[j] = np.nanmean(np.where(self.ratings[i] != self.MISSING_RATING, self.ratings[i], np.nan))
+                    current_user_predicted_ratings[j] = np.nanmean(self.ratings[:, j])
                 else:
-                    # Find top neighbors with the highest similarity for item j
-                    top_neighbours = np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
-                    top_neighbours = neighbours[top_neighbours]
-                    # Calculate predicted rating for item j
-                    sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[i, top_neighbours])
+                    top_neighbours = neighbours[np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]]
+                    sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[:, j][top_neighbours])
                     total_similarity = np.sum(similarities[j, top_neighbours])
-
                     current_user_predicted_ratings[j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
 
-            predicted_ratings.append(current_user_predicted_ratings)
+            predicted_ratings[i] = current_user_predicted_ratings
 
         return predicted_ratings
 
@@ -112,10 +89,7 @@ class RecommenderSystem:
         print("\nOriginal Matrix:")
         self.print_matrix(self.ratings)
 
-        for i in range(self.num_users):
-            for j in range(self.num_items):
-                if np.isnan(self.ratings[i, j]):
-                    self.ratings[i, j] = predicted_ratings[i][j]
+        self.ratings[np.isnan(self.ratings)] = predicted_ratings[np.isnan(self.ratings)]
 
         if expected_ratings is not None:
             self.compare_ratings(expected_ratings)
@@ -124,45 +98,40 @@ class RecommenderSystem:
             self.print_matrix(self.ratings)
 
     def predict_rating(self, userIndex, itemIndex, similarities):
-        predict_rating = 0
+        print(f"\nPredicting for user: {self.users[userIndex]}")
+        print(f"Predicting for item: {self.items[itemIndex]}")
 
         neighbours = np.where((self.ratings[userIndex] != self.MISSING_RATING) & (similarities[itemIndex] > 0))[0]
         adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
 
-        print(f"\nPredicting for user: {self.users[userIndex]}")
-        print(f"Predicting for item: {self.items[itemIndex]}")
-
         if adjusted_neighbourhood_size == 0:
-            predict_rating = np.nanmean(np.where(self.ratings[userIndex] != self.MISSING_RATING, self.ratings[userIndex], np.nan))
+            predict_rating = np.nanmean(self.ratings[userIndex])
             total_similarity = 0
             print("No valid neighbours found.")
         else:
             print(f"Found {adjusted_neighbourhood_size} valid neighbours:")
-            for idx in range(adjusted_neighbourhood_size):
-                neighbour_index = neighbours[idx]
-                neighbour_user = self.users[neighbour_index]
-                similarity = similarities[itemIndex, neighbour_index]
-                print(f"{idx + 1}. User {neighbour_user} sim={similarity}")
+            neighbour_indices = neighbours[:adjusted_neighbourhood_size]
+            neighbour_items = self.items[neighbour_indices]  # Use item indices instead of user indices
+            similarities_values = similarities[itemIndex, neighbour_indices]
 
-            top_neighbours = np.argpartition(similarities[itemIndex, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]
-            top_neighbours = neighbours[top_neighbours]
+            for idx, (neighbour_item, similarity) in enumerate(zip(neighbour_items, similarities_values)):
+                print(f"{idx + 1}. Item {neighbour_item} sim={similarity}")
 
+            top_neighbours = neighbour_indices[np.argsort(similarities_values)[-adjusted_neighbourhood_size:]]
             sum_ratings = np.sum(similarities[itemIndex, top_neighbours] * self.ratings[userIndex, top_neighbours])
             total_similarity = np.sum(similarities[itemIndex, top_neighbours])
 
             print(f"Initial predicted value: {sum_ratings / total_similarity}")
-            if total_similarity != 0:
-                predict_rating = max(0, min(5, sum_ratings / total_similarity))
-            else:
-                predict_rating = np.nanmean(np.where(self.ratings[userIndex] != self.MISSING_RATING, self.ratings[userIndex], np.nan))
+            predict_rating = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else np.nanmean(self.ratings[userIndex])
 
             print(f"Final predicted value: {predict_rating}")
 
-        return predict_rating, total_similarity
+        return predict_rating, total_similarity, adjusted_neighbourhood_size
+
 
     def find_mae(self):
         startTime = time.time()
-        testsetSize = 0
+        testsetSize = np.sum(~np.isnan(self.ratings))
         numerator = 0
 
         under_predictions = 0
@@ -172,16 +141,15 @@ class RecommenderSystem:
 
         for i in range(self.num_users):
             for j in range(self.num_items):
-                if not np.isnan(self.ratings[i][j]):
-                    testsetSize += 1
-                    temp = self.ratings[i][j]
-                    self.ratings[i][j] = self.MISSING_RATING
+                if not np.isnan(self.ratings[i, j]):
+                    temp = self.ratings[i, j]
+                    self.ratings[i, j] = self.MISSING_RATING
 
                     similarities = self.precompute_similarities()
-                    predicted_rating, total_similarity = self.predict_rating(i, j, similarities)
+                    predicted_rating, total_similarity, adjusted_neighbourhood_size = self.predict_rating(i, j, similarities)
 
                     if not np.isnan(predicted_rating):
-                        error = predicted_rating - self.ratings[i][j]
+                        error = predicted_rating - temp
                         numerator += abs(error)
 
                         if error < 1:
@@ -192,17 +160,15 @@ class RecommenderSystem:
                     if np.isnan(predicted_rating) or np.isinf(predicted_rating) or total_similarity == 0:
                         no_valid_neighbors += 1
                     else:
-                        neighbors = np.where((self.ratings[i] != self.MISSING_RATING) & (similarities[j] > 0))[0]
-                        adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbors))
                         total_neighbors_used += adjusted_neighbourhood_size
 
-                    self.ratings[i][j] = temp
+                    self.ratings[i, j] = temp
 
         mae = numerator / testsetSize
         print(f"Numerator = {numerator}")
         print(f"TestsetSize = {testsetSize}")
         print(f"Total predictions: {testsetSize}")
-        print(f"Total under predictions (< -1): {under_predictions}")
+        print(f"Total under predictions (< 1): {under_predictions}")
         print(f"Total over predictions (> 5): {over_predictions}")
         print(f"Number of cases with no valid neighbours: {no_valid_neighbors}")
         print(f"Average neighbors used: {total_neighbors_used / testsetSize}")
