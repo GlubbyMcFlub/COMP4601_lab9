@@ -2,9 +2,14 @@ import os
 import math
 import numpy as np
 
-class RecommenderSystem:
-    MISSING_RATING = -1
+#TODO: add checks to all denominators to ensure that it is not equal to 0 (use average rating score of user in place of prediction instead)
 
+class RecommenderSystem:
+    #-1 used to represent a no rating which we would have to predict
+    #now it is 0 and it just represents a no rating (since we are predicting everything else)
+    MISSING_RATING = 0
+
+    #TODO: change neighbourhood_size to 5 when ready. Make sure that size is up to 5 if there aren't enough
     def __init__(self, path, neighbourhood_size=2):
         """
         Initialize the RecommenderSystem with the given file path and neighbourhood size.
@@ -96,7 +101,7 @@ class RecommenderSystem:
                 similarities[j, i] = similarity
 
         return similarities
-
+    #should be updated in a future lab/assignment to incorporate predict_rating
     def predict_ratings(self, similarities):
         """
         Predicts the ratings for items that a user has not rated yet, using collaborative filtering.
@@ -154,6 +159,66 @@ class RecommenderSystem:
         else:
             print("No expected output available.")
             self.print_matrix(self.ratings)
+    def predict_rating(self, userIndex, itemIndex, similarities):
+        """
+        Predicts the rating of the itemIndex'th item for the userIndex'th user
+
+        Parameters:
+        - userIndex (float): userIndex
+        - itemIndex (float): itemIndex
+        - similarities (numpy.array): Matrix of precomputed similarities.
+
+        Returns:
+        - predict_rating (float): predicted rating of the itemIndex'th item for the userIndex'th user
+        """
+        #TODO: predict rating for single item
+        predict_rating = 1
+        print(f"predicted rating of item ({userIndex}, {itemIndex})= {predict_rating}")
+        return 1
+    def find_mae(self):
+        """
+        finds mae
+
+        Parameters:
+        - similarities (numpy.array): Matrix of precomputed similarities.
+
+        Returns:
+        - mae (float): mean absolute error
+        """
+        #loop through each user and existing rating of that user to calculate a final Mean Absolute Error
+        testsetSize = 0
+        numerator = 0
+        for i in range (self.num_users):
+            for j in range(self.num_items):
+                if self.ratings[i][j] != self.MISSING_RATING:
+                    testsetSize += 1
+        for i in range (self.num_users):
+            for j in range(self.num_items):
+                if self.ratings[i][j] != self.MISSING_RATING:
+                    #when predicting a rating we need to pretend that the rating which already exists doesn't exist (set to self.MISSING_RATING)
+                    temp = self.ratings[i][j]
+                    self.ratings[i][j] = self.MISSING_RATING
+                    #need to recalculate similarities for each prediction
+                    #there should be room for optimization here (maybe only calculate all users' similarities to user i)
+                    #TODO: probably need to create/modify similarity calculation to only calculate all users' similarities to user i
+                    similarities = self.precompute_similarities()
+                    numerator += abs(self.predict_rating(i, j, similarities) - self.ratings[i][j])
+                    self.ratings[i][j] = temp
+        
+        print(f"numerator = {numerator}")
+        print(f"testsetSize = {testsetSize}")
+        mae = numerator/testsetSize
+        return mae
+    def fill_in_mae(self):
+        #currently just calls find_mae, can probably be removed
+        """
+        Fills in the predicted ratings for all users and items.
+        Compares the generated ratings with the expected ratings if available.
+        """
+        
+        mae = self.find_mae()
+ 
+        print(f"mae = {mae}")
 
     def read_expected_output(self):
         """
@@ -218,7 +283,8 @@ def main():
         selected_index = int(input("File to process: ")) - 1
         selected_file = os.path.join(input_directory, files[selected_index])
         recommender_system = RecommenderSystem(selected_file)
-        recommender_system.fill_in_predicted_ratings()
+        #recommender_system.fill_in_predicted_ratings()
+        recommender_system.fill_in_mae()
     except ValueError:
         print("Invalid input. Please enter a valid integer.")
         return
