@@ -127,7 +127,9 @@ class RecommenderSystem:
 
         # if no neighbours found, use average rating for item
         if adjusted_neighbourhood_size == 0:
-            predict_rating = np.nanmean(self.ratings[userIndex])
+            ratings_without_zeros = np.where(self.ratings[userIndex] != 0, self.ratings[userIndex], np.nan)
+            predict_rating = np.nanmean(ratings_without_zeros)
+
             total_similarity = 0
             print("No valid neighbours found.")
         else:
