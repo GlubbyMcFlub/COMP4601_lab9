@@ -139,7 +139,8 @@ class RecommenderSystem:
             # print(indexed_numbers)
 
             # Sort the list based on numbers in descending order, but only for indices in the specified array
-            sorted_indices = [index for _, index, is_in_array in sorted(indexed_numbers, key=lambda x: (x[0], x[1]), reverse=True) if is_in_array]
+            sorted_indices = [index for _, index, is_in_array in sorted(indexed_numbers, key=lambda x: (x[0], -x[1]), reverse=True) if is_in_array]
+
 
             top_neighbours_indices = sorted_indices[:adjusted_neighbourhood_size]
 
@@ -152,9 +153,11 @@ class RecommenderSystem:
 
 
             print(similarities[itemIndex])
+            i = 0
             for idx in top_neighbours_indices:
                 # print(f"index = {idx}")
-                print(f"{idx + 1}. {self.items[idx]} sim={similarities[itemIndex, idx]}")
+                print(f"{i + 1}. {self.items[idx]} sim={similarities[itemIndex, idx]}")
+                i += 1
 
             sum_ratings = np.sum(similarities[itemIndex, top_neighbours_indices] * self.ratings[userIndex, top_neighbours_indices])
             total_similarity = np.sum(similarities[itemIndex, top_neighbours_indices])
