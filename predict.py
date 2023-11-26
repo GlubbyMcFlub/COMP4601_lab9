@@ -4,10 +4,10 @@ import numpy as np
 import time
 
 class RecommenderSystem:
-    MISSING_RATING = 0
+    MISSING_RATING = 0.0
     DEFAULT_NEIGHBOURHOOD_SIZE = 2
-    MIN_RATING = 1
-    MAX_RATING = 5
+    MIN_RATING = 1.0
+    MAX_RATING = 5.0
 
     def __init__(self, path, neighbourhood_size=DEFAULT_NEIGHBOURHOOD_SIZE):
         """
@@ -132,7 +132,7 @@ class RecommenderSystem:
                     top_neighbours = neighbours[np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]]
                     sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[:, j][top_neighbours])
                     total_similarity = np.sum(similarities[j, top_neighbours])
-                    predicted_ratings[i, j] = max(self.MIN_RATING, min(self.MAX_RATING, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
+                    predicted_ratings[i, j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
 
         return predicted_ratings
 
@@ -199,7 +199,7 @@ class RecommenderSystem:
             total_similarity = np.sum(similarities[itemIndex, top_neighbours])
 
             print(f"Initial predicted value: {sum_ratings / total_similarity}")
-            predict_rating = max(self.MIN_RATING, min(self.MAX_RATING, sum_ratings / total_similarity)) if total_similarity != 0 else np.nanmean(self.ratings[userIndex])
+            predict_rating = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else np.nanmean(self.ratings[userIndex])
 
             print(f"Final predicted value: {predict_rating}")
 
@@ -215,7 +215,7 @@ class RecommenderSystem:
         
         try:
             startTime = time.time()
-            testsetSize = np.sum(~np.isnan(self.ratings))
+            testsetSize = 0
             numerator = 0
 
             under_predictions = 0
@@ -227,7 +227,9 @@ class RecommenderSystem:
 
             for i in range(self.num_users):
                 for j in range(self.num_items):
-                    if not np.isnan(self.ratings[i, j]):
+                    print(f"rating ({i}, {j}), = {self.ratings[i, j]}, bool = {not np.isnan(self.ratings[i, j]) and not self.ratings[i, j] == self.MISSING_RATING}")
+                    if not np.isnan(self.ratings[i, j]) and not self.ratings[i, j] == self.MISSING_RATING:
+                        testsetSize += 1
                         temp = self.ratings[i, j]
                         self.ratings[i, j] = self.MISSING_RATING
 
@@ -235,8 +237,10 @@ class RecommenderSystem:
                         predicted_rating, total_similarity, adjusted_neighbourhood_size = self.predict_rating(i, j, similarities)
 
                         if not np.isnan(predicted_rating):
-                            error = predicted_rating - temp
-                            numerator += abs(error)
+                            error = abs(predicted_rating - temp)
+                            numerator += error
+                            if error < self.MIN_RATING:
+                                print(f"predict: {predicted_rating}, temp: {temp}")
 
                             if error < self.MIN_RATING:
                                 under_predictions += 1
@@ -254,8 +258,8 @@ class RecommenderSystem:
             print(f"Numerator = {numerator}")
             print(f"TestsetSize = {testsetSize}")
             print(f"Total predictions: {testsetSize}")
-            print(f"Total under predictions (< {self.MIN_RATING}): {under_predictions}")
-            print(f"Total over predictions (> {self.MAX_RATING}): {over_predictions}")
+            print(f"Total under predictions (< {1}): {under_predictions}")
+            print(f"Total over predictions (> {5}): {over_predictions}")
             print(f"Number of cases with no valid neighbours: {no_valid_neighbours}")
             print(f"Average neighbours used: {total_neighbours_used / testsetSize}")
             print(f"MAE: {mae}")
