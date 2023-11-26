@@ -134,16 +134,17 @@ class RecommenderSystem:
             print("No valid neighbours found.")
         else:
             print(f"Found {adjusted_neighbourhood_size} valid neighbours:")
-            neighbour_indices = neighbours[:adjusted_neighbourhood_size]
-            neighbour_items = self.items[neighbour_indices]
+            neighbour_indices = neighbours
             similarities_values = similarities[itemIndex, neighbour_indices]
 
-            for idx, (neighbour_item, similarity) in enumerate(zip(neighbour_items, similarities_values)):
-                print(f"{idx + 1}. Item {neighbour_item} sim={similarity}")
+            # sort indices based on similarity values in descending order
+            top_neighbours_indices = neighbour_indices[np.argsort(similarities_values)[:adjusted_neighbourhood_size:-1]]
+            
+            for idx in top_neighbours_indices:
+                print(f"{idx + 1}. Item {self.items[idx]} sim={similarities_values[idx]}")
 
-            top_neighbours = neighbour_indices[np.argsort(similarities_values)[-adjusted_neighbourhood_size:]]
-            sum_ratings = np.sum(similarities[itemIndex, top_neighbours] * self.ratings[userIndex, top_neighbours])
-            total_similarity = np.sum(similarities[itemIndex, top_neighbours])
+            sum_ratings = np.sum(similarities[itemIndex, top_neighbours_indices] * self.ratings[userIndex, top_neighbours_indices])
+            total_similarity = np.sum(similarities[itemIndex, top_neighbours_indices])
 
             print(f"Initial predicted value: {sum_ratings / total_similarity}")
             predict_rating = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else np.nanmean(self.ratings[userIndex])
@@ -234,7 +235,7 @@ def main():
     try:
         selected_index = int(input("File to process: ")) - 1
         selected_file = os.path.join(input_directory, files[selected_index])
-        recommender_system = RecommenderSystem(selected_file, neighbourhood_size=5)
+        recommender_system = RecommenderSystem(selected_file)
         recommender_system.find_mae()
     except ValueError:
         print("Invalid input. Please enter a valid integer.")
