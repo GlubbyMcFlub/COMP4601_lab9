@@ -101,23 +101,6 @@ class RecommenderSystem:
                 similarities[j, i] = similarity
 
         return similarities
-    
-    def sort_neighbours_by_similarity(self, neighbour_indices, similarities_values):
-        """
-        Sort neighbour indices and values based on similarity values in descending order.
-
-        Parameters:
-        - neighbour_indices (numpy.ndarray): Array of indices for neighbours.
-        - similarities_values (numpy.ndarray): Array of similarity values.
-
-        Returns:
-        Tuple containing:
-        - sorted_indices (numpy.ndarray): Sorted neighbour indices.
-        - sorted_values (numpy.ndarray): Sorted similarity values.
-        """
-        sorted_indices = neighbour_indices[np.argsort(similarities_values)[::-1]]
-        sorted_values = similarities_values[np.argsort(similarities_values)[::-1]]
-        return sorted_indices, sorted_values
 
     def predict_rating(self, userIndex, itemIndex, similarities):
         """
@@ -139,8 +122,8 @@ class RecommenderSystem:
         print(f"Predicting for item: {self.items[itemIndex]}")
 
         # get all neighbours who rated the item, adjust neighbourhood size if necessary
-        neighbour_indices = np.where((self.ratings[userIndex] != self.MISSING_RATING) & (similarities[itemIndex] > 0))[0]
-        adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbour_indices))
+        neighbours = np.where((self.ratings[userIndex] != self.MISSING_RATING) & (similarities[itemIndex] > 0))[0]
+        adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
 
         # if no neighbours found, use average rating for item
         if adjusted_neighbourhood_size == 0:
@@ -151,13 +134,35 @@ class RecommenderSystem:
             print("No valid neighbours found.")
         else:
             print(f"Found {adjusted_neighbourhood_size} valid neighbours:")
-            sorted_indices, sorted_similarities = self.sort_neighbours_by_similarity(neighbour_indices, similarities[itemIndex, neighbour_indices])
 
-            top_neighbours_indices = sorted_indices[:adjusted_neighbourhood_size]
-            top_neighbours = self.items[top_neighbours_indices]
+            subset_array = [similarities[itemIndex, i] for i in neighbours]
+            
 
-            for idx, (neighbour_item, similarity) in enumerate(zip(top_neighbours, sorted_similarities[:adjusted_neighbourhood_size])):
-                print(f"{idx + 1}. Item {neighbour_item} sim={similarity}")
+            # Sort the subset array in descending order
+            sorted_subset_descending = sorted(subset_array, reverse=True)
+            for element in sorted_subset_descending:
+                print(f"index = {element}")
+            
+            indexed_neighbours = list(enumerate(sorted_subset_descending))
+
+            sorted_neighbours_indices = sorted(indexed_neighbours, key=lambda x: x[1], reverse=True)
+            # for idx in sorted_neighbours_indices:
+            #     print(f"index = {idx}")
+
+            top_neighbours_indices = [index for index, _ in sorted_neighbours_indices[:adjusted_neighbourhood_size]]
+
+            
+            # neighbour_indices = neighbours
+            # similarities_values = similarities[itemIndex, neighbour_indices]
+
+            # # sort indices based on similarity values in descending order
+            # top_neighbours_indices = neighbour_indices[np.argsort(similarities_values)[:adjusted_neighbourhood_size:-1]]
+
+
+            
+            # for idx in top_neighbours_indices:
+            #     print(f"index = {idx}")
+                # print(f"{idx + 1}. {self.items[idx]} sim={similarities[itemIndex, idx]}")
 
             sum_ratings = np.sum(similarities[itemIndex, top_neighbours_indices] * self.ratings[userIndex, top_neighbours_indices])
             total_similarity = np.sum(similarities[itemIndex, top_neighbours_indices])
