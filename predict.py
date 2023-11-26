@@ -223,8 +223,6 @@ class RecommenderSystem:
             no_valid_neighbours = 0
             total_neighbours_used = 0
 
-            similarities = self.precompute_similarities()
-
             for i in range(self.num_users):
                 for j in range(self.num_items):
                     print(f"rating ({i}, {j}), = {self.ratings[i, j]}, bool = {not np.isnan(self.ratings[i, j]) and not self.ratings[i, j] == self.MISSING_RATING}")
@@ -233,6 +231,8 @@ class RecommenderSystem:
                         temp = self.ratings[i, j]
                         self.ratings[i, j] = self.MISSING_RATING
 
+                        similarities = self.precompute_similarities()
+
                         # predict the rating for each user-item pair
                         predicted_rating, total_similarity, adjusted_neighbourhood_size = self.predict_rating(i, j, similarities)
 
@@ -240,7 +240,7 @@ class RecommenderSystem:
                             error = abs(predicted_rating - temp)
                             numerator += error
                             if error < self.MIN_RATING:
-                                print(f"predict: {predicted_rating}, temp: {temp}")
+                                print(f"predict: {predicted_rating}, temp: {temp}, error: {error}")
 
                             if error < self.MIN_RATING:
                                 under_predictions += 1
