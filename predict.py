@@ -135,21 +135,13 @@ class RecommenderSystem:
         else:
             print(f"Found {adjusted_neighbourhood_size} valid neighbours:")
 
-            subset_array = [similarities[itemIndex, i] for i in neighbours]
-            
+            indexed_numbers = [(num, i, i in neighbours) for i, num in enumerate(similarities[itemIndex])]
+            # print(indexed_numbers)
 
-            # Sort the subset array in descending order
-            sorted_subset_descending = sorted(subset_array, reverse=True)
-            for element in sorted_subset_descending:
-                print(f"index = {element}")
-            
-            indexed_neighbours = list(enumerate(sorted_subset_descending))
+            # Sort the list based on numbers in descending order, but only for indices in the specified array
+            sorted_indices = [index for _, index, is_in_array in sorted(indexed_numbers, key=lambda x: (x[0], x[1]), reverse=True) if is_in_array]
 
-            sorted_neighbours_indices = sorted(indexed_neighbours, key=lambda x: x[1], reverse=True)
-            # for idx in sorted_neighbours_indices:
-            #     print(f"index = {idx}")
-
-            top_neighbours_indices = [index for index, _ in sorted_neighbours_indices[:adjusted_neighbourhood_size]]
+            top_neighbours_indices = sorted_indices[:adjusted_neighbourhood_size]
 
             
             # neighbour_indices = neighbours
@@ -159,10 +151,10 @@ class RecommenderSystem:
             # top_neighbours_indices = neighbour_indices[np.argsort(similarities_values)[:adjusted_neighbourhood_size:-1]]
 
 
-            
-            # for idx in top_neighbours_indices:
-            #     print(f"index = {idx}")
-                # print(f"{idx + 1}. {self.items[idx]} sim={similarities[itemIndex, idx]}")
+            print(similarities[itemIndex])
+            for idx in top_neighbours_indices:
+                # print(f"index = {idx}")
+                print(f"{idx + 1}. {self.items[idx]} sim={similarities[itemIndex, idx]}")
 
             sum_ratings = np.sum(similarities[itemIndex, top_neighbours_indices] * self.ratings[userIndex, top_neighbours_indices])
             total_similarity = np.sum(similarities[itemIndex, top_neighbours_indices])
