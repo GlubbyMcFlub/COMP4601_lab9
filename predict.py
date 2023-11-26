@@ -102,61 +102,6 @@ class RecommenderSystem:
 
         return similarities
 
-    def predict_ratings(self, similarities):
-        """
-        Predict missing ratings for unrated items in the dataset.
-
-        Parameters:
-        similarities (numpy.ndarray): 2D array containing precomputed item similarities.
-
-        Returns:
-        numpy.ndarray: 2D array containing predicted ratings.
-        """
-        
-        predicted_ratings = np.full((self.num_users, self.num_items), self.MISSING_RATING, dtype=float)
-
-        for i in range(self.num_users):
-            current_user_ratings = self.ratings[i]
-            unrated_items = np.where(current_user_ratings == self.MISSING_RATING)[0]
-
-            for j in unrated_items:
-                # find neighbours who have rated item j
-                neighbours = np.where((self.ratings[:, j] != self.MISSING_RATING) & (similarities[j] > 0))[0]
-                adjusted_neighbourhood_size = min(self.neighbourhood_size, len(neighbours))
-
-                # if no neighbours found, use average rating for item j
-                if adjusted_neighbourhood_size == 0:
-                    predicted_ratings[i, j] = np.nanmean(self.ratings[:, j])
-                else:
-                    # predict the rating for item j for top neighbours (highest similarity)
-                    top_neighbours = neighbours[np.argpartition(similarities[j, neighbours], -adjusted_neighbourhood_size)[-adjusted_neighbourhood_size:]]
-                    sum_ratings = np.sum(similarities[j, top_neighbours] * self.ratings[:, j][top_neighbours])
-                    total_similarity = np.sum(similarities[j, top_neighbours])
-                    predicted_ratings[i, j] = max(0, min(5, sum_ratings / total_similarity)) if total_similarity != 0 else self.MISSING_RATING
-
-        return predicted_ratings
-
-    def fill_in_predicted_ratings(self):
-        """
-        Fill in missing ratings with predicted values and compare with expected output.
-        """
-        
-        similarities = self.precompute_similarities()
-        predicted_ratings = self.predict_ratings(similarities)
-        expected_ratings = self.read_expected_output()
-
-        print("\nOriginal Matrix:")
-        self.print_matrix(self.ratings)
-
-        # fill in missing ratings w/ predicted ratings
-        self.ratings[np.isnan(self.ratings)] = predicted_ratings[np.isnan(self.ratings)]
-
-        if expected_ratings is not None:
-            self.compare_ratings(expected_ratings)
-        else:
-            print("No expected output available.")
-            self.print_matrix(self.ratings)
-
     def predict_rating(self, userIndex, itemIndex, similarities):
         """
         Predict a single rating for a user-item pair.
@@ -275,66 +220,6 @@ class RecommenderSystem:
         except Exception as err:
             print(f"Error: {str(err)}")
             return None
-
-    def read_expected_output(self):
-        """
-        Read expected output ratings from a file.
-
-        Returns:
-        numpy.ndarray: 2D array containing expected output ratings.
-        """
-        
-        expected_output_path = os.path.join("output", "out-" + os.path.basename(self.path))
-        try:
-            with open(expected_output_path, 'r') as file:
-                expected_ratings = np.array([[float(rating) for rating in line.split()] for line in file.readlines()[3:]])
-                return expected_ratings
-        except FileNotFoundError:
-            print(f"File not found: {expected_output_path}")
-            return None
-
-    def compare_ratings(self, expected_ratings):
-        """
-        Compare generated ratings with expected ratings.
-
-        Parameters:
-        expected_ratings (numpy.ndarray): 2D array containing expected ratings.
-
-        Returns:
-        None
-        """
-        
-        if expected_ratings is not None:
-            rounded_generated_ratings = np.round(self.ratings, decimals=2)
-            rounded_expected_ratings = np.round(expected_ratings, decimals=2)
-
-            if np.allclose(rounded_generated_ratings, rounded_expected_ratings):
-                print("Matrices are equalish, good enough.")
-            else:
-                print("Matrices are NOT equal.")
-
-            print("\nGenerated Matrix:")
-            self.print_matrix(self.ratings)
-
-            print("\nExpected Matrix:")
-            self.print_matrix(expected_ratings)
-        else:
-            print("Expected ratings are not available.")
-
-    def print_matrix(self, matrix):
-        """
-        Print a 2D matrix with formatted ratings.
-
-        Parameters:
-        matrix (numpy.ndarray): 2D array to be printed.
-
-        Returns:
-        None
-        """
-        
-        for row in matrix:
-            print(" ".join(f"{rating:.2f}" if not np.isnan(rating) else f"{self.MISSING_RATING:.2f}" for rating in row))
-
 
 def main():
     input_directory = "./input"
