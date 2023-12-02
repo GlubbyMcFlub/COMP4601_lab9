@@ -4,10 +4,9 @@ import numpy as np
 import time
 
 class RecommenderSystem:
-    MISSING_RATING = 0
+    UNKNOWN_RATING = 0
+    LIKED_RATING = 1
     PREDICTED_USER = "User1"
-    LIKED = 1
-    UNKNOWN = 0
 
     def __init__(self, path):
         """
@@ -35,26 +34,34 @@ class RecommenderSystem:
         """
         predicted_user_index = np.where(self.users == predicted_user)[0][0]
         print(predicted_user_index)
-        liked_items_of_predicted_user = np.where(self.ratings[predicted_user_index] == self.LIKED)[0]
+        liked_items_of_predicted_user = np.where(self.ratings[predicted_user_index] == self.LIKED_RATING)[0]
         recommended_items = {}
         
         #for each liked item of predicted user
-        for item in liked_items_of_predicted_user:
-            print(item)
-            users_who_liked_item = np.where(self.ratings[:, item] == self.LIKED)[0]
+        for liked_item in liked_items_of_predicted_user:
+            print(liked_item)
+            users_who_liked_item = np.where((self.ratings[:, liked_item] == self.LIKED_RATING) & (np.arange(self.num_users) != predicted_user_index))[0]
             print(users_who_liked_item)
             #for each user that liked that item
             for user in users_who_liked_item:
                 print(user)
-                items_liked_by_user = np.where(self.ratings[user] == self.LIKED)[0]
+                items_liked_by_user = np.where(self.ratings[user] == self.LIKED_RATING)[0]
                 print(items_liked_by_user)
                 #for each item that user liked
-                for item in items_liked_by_user:
-                    print(item)
+                for recommended_item in items_liked_by_user:
+                    print(recommended_item)
+                    #tally that item in list of tuples
+                    if recommended_item not in recommended_items:
+                        recommended_items[recommended_item] = 1
+                    else:
+                        recommended_items[recommended_item] += 1
         
-        #tally that item in list of tuples
+        sorted_recommended_items = sorted(recommended_items.items(), key=lambda x: (x[1], x[0]), reverse=True)
         
-        return recommended_items
+        for item, path_count in sorted_recommended_items:
+            print(f"Item{item + 1}: {path_count} paths")
+        
+        return sorted_recommended_items
 
     def read_data(self):
         """
@@ -73,7 +80,7 @@ class RecommenderSystem:
                 num_users, num_items = map(int, file.readline().split())
                 users = np.array(file.readline().split())
                 items = np.array(file.readline().split())
-                ratings = np.array([[float(rating) if rating != self.MISSING_RATING else self.MISSING_RATING for rating in line.split()] for line in file])
+                ratings = np.array([[float(rating) if rating != self.UNKNOWN_RATING else self.UNKNOWN_RATING for rating in line.split()] for line in file])
                 return num_users, num_items, users, items, ratings
         except ValueError as err:
             raise ValueError(f"Error: {str(err)}")
