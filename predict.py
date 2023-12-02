@@ -33,23 +33,21 @@ class RecommenderSystem:
         and the number of paths leading to it
         """
         predicted_user_index = np.where(self.users == predicted_user)[0][0]
-        print(predicted_user_index)
+        # print(predicted_user_index)
         liked_items_of_predicted_user = np.where(self.ratings[predicted_user_index] == self.LIKED_RATING)[0]
         recommended_items = {}
         
         #for each liked item of predicted user
         for liked_item in liked_items_of_predicted_user:
-            print(liked_item)
             users_who_liked_item = np.where((self.ratings[:, liked_item] == self.LIKED_RATING) & (np.arange(self.num_users) != predicted_user_index))[0]
-            print(users_who_liked_item)
+            # print(f"users who liked {self.items[liked_item]} = {self.users[users_who_liked_item]}")
             #for each user that liked that item
             for user in users_who_liked_item:
-                print(user)
-                items_liked_by_user = np.where(self.ratings[user] == self.LIKED_RATING)[0]
-                print(items_liked_by_user)
+                items_liked_by_user = np.setdiff1d(np.where(self.ratings[user] == self.LIKED_RATING)[0], liked_items_of_predicted_user)
+                # print(f"items liked by {self.users[user]} = {self.items[items_liked_by_user]}")
                 #for each item that user liked
                 for recommended_item in items_liked_by_user:
-                    print(recommended_item)
+                    # print(f"incrementing {self.items[recommended_item]}")
                     #tally that item in list of tuples
                     if recommended_item not in recommended_items:
                         recommended_items[recommended_item] = 1
@@ -59,7 +57,7 @@ class RecommenderSystem:
         sorted_recommended_items = sorted(recommended_items.items(), key=lambda x: (x[1], x[0]), reverse=True)
         
         for item, path_count in sorted_recommended_items:
-            print(f"Item{item + 1}: {path_count} paths")
+            print(f"{self.items[item]}: {path_count} paths")
         
         return sorted_recommended_items
 
