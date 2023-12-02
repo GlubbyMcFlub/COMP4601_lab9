@@ -4,10 +4,10 @@ import numpy as np
 import time
 
 class RecommenderSystem:
-    MISSING_RATING = 0.0
-    PREDICTED_USER = 0 #user1
+    MISSING_RATING = 0
+    PREDICTED_USER = "User1"
     LIKED = 1
-    DISLIKED = 0
+    UNKNOWN = 0
     DEFAULT_PATH_SIZE = 3
 
     def __init__(self, path, path_size=DEFAULT_PATH_SIZE):
@@ -25,15 +25,24 @@ class RecommenderSystem:
         self.path_size = path_size
         self.num_users, self.num_items, self.users, self.items, self.ratings = self.read_data()
 
-    def predictItems(self):
+    def predictItems(self, predicted_user):
         """
-        predicts item for predicted user (user1)
+        predicts item for predicted user
 
         Parameters:
 
         Returns:
-        list of items that the predicted user may like
+        list of tuples containing an item that the predicted user may like
+        and the number of paths leading to it
         """
+        predicted_user_index = np.where(self.users == predicted_user)[0][0]
+        print(predicted_user_index)
+        #for each liked item of predicted user
+        #for each user that liked that item
+        #for each item that user liked
+        #tally that item in list of tuples
+        x = 0
+        return x
 
     def read_data(self):
         """
@@ -70,9 +79,12 @@ def main():
 
     try:
         selected_index = int(input("File to process: ")) - 1
+        print(selected_index)
         selected_file = os.path.join(input_directory, files[selected_index])
-        recommender_system = RecommenderSystem(selected_file)
-        recommender_system.predictItems()
+        print(selected_file)
+
+        recommender_system = RecommenderSystem(selected_file, )
+        recommender_system.predictItems(recommender_system.PREDICTED_USER)
     except ValueError:
         print("Invalid input. Please enter a valid integer.")
         return
