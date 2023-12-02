@@ -35,12 +35,26 @@ class RecommenderSystem:
         """
         predicted_user_index = np.where(self.users == predicted_user)[0][0]
         print(predicted_user_index)
+        liked_items_of_predicted_user = np.where(self.ratings[predicted_user_index] == self.LIKED)[0]
+        recommended_items = {}
+        
         #for each liked item of predicted user
-        #for each user that liked that item
-        #for each item that user liked
+        for item in liked_items_of_predicted_user:
+            print(item)
+            users_who_liked_item = np.where(self.ratings[:, item] == self.LIKED)[0]
+            print(users_who_liked_item)
+            #for each user that liked that item
+            for user in users_who_liked_item:
+                print(user)
+                items_liked_by_user = np.where(self.ratings[user] == self.LIKED)[0]
+                print(items_liked_by_user)
+                #for each item that user liked
+                for item in items_liked_by_user:
+                    print(item)
+        
         #tally that item in list of tuples
-        x = 0
-        return x
+        
+        return recommended_items
 
     def read_data(self):
         """
