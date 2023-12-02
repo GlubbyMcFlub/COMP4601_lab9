@@ -96,9 +96,7 @@ def main():
 
     try:
         selected_index = int(input("File to process: ")) - 1
-        print(selected_index)
         selected_file = os.path.join(input_directory, files[selected_index])
-        print(selected_file)
 
         recommender_system = RecommenderSystem(selected_file, )
         recommender_system.predictItems(recommender_system.PREDICTED_USER)
