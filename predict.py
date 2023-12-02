@@ -1,7 +1,5 @@
 import os
-import math
 import numpy as np
-import time
 
 class RecommenderSystem:
     UNKNOWN_RATING = 0
@@ -14,7 +12,6 @@ class RecommenderSystem:
 
         Parameters:
         - path (str): Path to the input data file.
-        - neighbourhood_size (int): Size of the neighbourhood for recommendation.
 
         Returns:
         None
@@ -24,36 +21,39 @@ class RecommenderSystem:
 
     def predictItems(self, predicted_user):
         """
-        predicts item for predicted user
+        Predicts items that the predicted user may like.
 
         Parameters:
-
+        - predicted_user (str): Name of the user to predict items for.
+        
         Returns:
-        list of tuples containing an item that the predicted user may like
-        and the number of paths leading to it
+        List of tuples containing:
+        - item (str): Name of the item.
+        - path_count (int): Number of paths from the predicted user to the item.
         """
+        
+        # get index of predicted user
         predicted_user_index = np.where(self.users == predicted_user)[0][0]
-        # print(predicted_user_index)
+        # get indices of items liked by predicted user
         liked_items_of_predicted_user = np.where(self.ratings[predicted_user_index] == self.LIKED_RATING)[0]
         recommended_items = {}
         
-        #for each liked item of predicted user
+        # for each liked item of predicted user, get users that liked that item
         for liked_item in liked_items_of_predicted_user:
             users_who_liked_item = np.where((self.ratings[:, liked_item] == self.LIKED_RATING) & (np.arange(self.num_users) != predicted_user_index))[0]
-            # print(f"users who liked {self.items[liked_item]} = {self.users[users_who_liked_item]}")
-            #for each user that liked that item
+            
+            # for each user that liked that item, get items that user liked
             for user in users_who_liked_item:
                 items_liked_by_user = np.setdiff1d(np.where(self.ratings[user] == self.LIKED_RATING)[0], liked_items_of_predicted_user)
-                # print(f"items liked by {self.users[user]} = {self.items[items_liked_by_user]}")
-                #for each item that user liked
+                
+                # for each item that user liked, tally that item in list of tuples
                 for recommended_item in items_liked_by_user:
-                    # print(f"incrementing {self.items[recommended_item]}")
-                    #tally that item in list of tuples
                     if recommended_item not in recommended_items:
                         recommended_items[recommended_item] = 1
                     else:
                         recommended_items[recommended_item] += 1
         
+        # sort items from highest to lowest number of paths
         sorted_recommended_items = sorted(recommended_items.items(), key=lambda x: (x[1], x[0]), reverse=True)
         
         for item, path_count in sorted_recommended_items:
