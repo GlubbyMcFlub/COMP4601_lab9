@@ -8,9 +8,8 @@ class RecommenderSystem:
     PREDICTED_USER = "User1"
     LIKED = 1
     UNKNOWN = 0
-    DEFAULT_PATH_SIZE = 3
 
-    def __init__(self, path, path_size=DEFAULT_PATH_SIZE):
+    def __init__(self, path):
         """
         Initialize the RecommenderSystem object.
 
@@ -22,7 +21,6 @@ class RecommenderSystem:
         None
         """
         self.path = path
-        self.path_size = path_size
         self.num_users, self.num_items, self.users, self.items, self.ratings = self.read_data()
 
     def predictItems(self, predicted_user):
